@@ -14,7 +14,7 @@ import { THEMES, ALL_PHRASES, type Phrase } from "@/lib/phrases";
 import { useProgress } from "@/lib/useProgress";
 import { speak, warmVoices } from "@/lib/speak";
 
-type Mode = "encarar" | "idiomas" | "quiz";
+type Mode = "encarar" | "idiomas" | "quiz" | "cerebro";
 type CatFilter = CategoryId | "todas";
 type IntFilter = Intensity | "todas";
 type Lang = "en" | "ru";
@@ -80,6 +80,66 @@ function initialTheme(): "dark" | "light" {
     : "dark";
 }
 
+// Micropassos garantidos mesmo sem IA (regra dos 2 minutos).
+const FALLBACK_STEPS = [
+  "Remova uma distração à sua frente e respire fundo uma vez.",
+  "Faça a menor versão possível disto por apenas 2 minutos.",
+  "Ao fim dos 2 minutos, decida continuar — quase sempre você segue.",
+];
+
+function loadReflections(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem("metanoia:reflections") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function loadPlans(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem("metanoia:plans") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+interface Brain {
+  best: number | null;
+  streak: number;
+  lastDate: string | null;
+  plays: number;
+}
+
+function loadBrain(): Brain {
+  const def: Brain = { best: null, streak: 0, lastDate: null, plays: 0 };
+  if (typeof window === "undefined") return def;
+  try {
+    return {
+      ...def,
+      ...JSON.parse(localStorage.getItem("metanoia:schulte") || "{}"),
+    };
+  } catch {
+    return def;
+  }
+}
+
+function isoDay(offset = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toLocaleDateString("en-CA");
+}
+
+function fmtMs(ms: number): string {
+  return (ms / 1000).toFixed(1) + "s";
+}
+
+// Fonte de tempo isolada em módulo (evita chamar Date.now durante o render).
+function nowMs(): number {
+  return Date.now();
+}
+
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<Mode>("encarar");
@@ -97,6 +157,29 @@ export default function Home() {
   const [quizIdx, setQuizIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState<string | null>(null);
+
+  // ---- Aprimoramento IA: micropassos, reflexão, mentor ----
+  const [reflections, setReflections] =
+    useState<Record<string, string>>(loadReflections);
+  const [stepsById, setStepsById] = useState<Record<string, string[]>>({});
+  const [stepsLoading, setStepsLoading] = useState(false);
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [mentorById, setMentorById] = useState<
+    Record<string, { text?: string; error?: string }>
+  >({});
+  const [mentorLoading, setMentorLoading] = useState(false);
+
+  // ---- Gênio: plano Se → Então (implementação de intenção) ----
+  const [plans, setPlans] = useState<Record<string, string>>(loadPlans);
+
+  // ---- Cérebro: Tabela de Schulte (neuroplasticidade) ----
+  const [brain, setBrain] = useState<Brain>(loadBrain);
+  const [grid, setGrid] = useState<number[]>([]);
+  const [nextNum, setNextNum] = useState(1);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [finishedMs, setFinishedMs] = useState<number | null>(null);
+  const [wrongCell, setWrongCell] = useState<number | null>(null);
+  const [now, setNow] = useState(0);
 
   const { streak, totalDone, doneToday, markDone } = useProgress();
 
@@ -119,6 +202,13 @@ export default function Home() {
     setCurrentId(pickId(CHALLENGES));
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
+
+  // Cronômetro vivo do Schulte (setState só no callback do interval, não no corpo).
+  useEffect(() => {
+    if (mode !== "cerebro" || startedAt === null || finishedMs !== null) return;
+    const iv = window.setInterval(() => setNow(nowMs()), 100);
+    return () => window.clearInterval(iv);
+  }, [mode, startedAt, finishedMs]);
 
   function toggleTheme() {
     const t = theme === "dark" ? "light" : "dark";
@@ -185,6 +275,143 @@ export default function Home() {
     setAnswered(null);
   }
 
+  function setReflection(id: string, text: string) {
+    setReflections((prev) => {
+      const nextR = { ...prev, [id]: text };
+      try {
+        localStorage.setItem("metanoia:reflections", JSON.stringify(nextR));
+      } catch {
+        /* ignore */
+      }
+      return nextR;
+    });
+  }
+
+  function toggleCheck(id: string, i: number) {
+    const key = `${id}#${i}`;
+    setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  async function askSteps() {
+    if (!current || stepsLoading) return;
+    const id = current.id;
+    setStepsLoading(true);
+    try {
+      const res = await fetch("/api/mentor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mode: "steps", action: current.action }),
+      });
+      const data = await res.json();
+      const steps =
+        res.ok && Array.isArray(data.steps) && data.steps.length
+          ? (data.steps as string[])
+          : FALLBACK_STEPS;
+      setStepsById((m) => ({ ...m, [id]: steps }));
+    } catch {
+      setStepsById((m) => ({ ...m, [id]: FALLBACK_STEPS }));
+    } finally {
+      setStepsLoading(false);
+    }
+  }
+
+  async function askMentor() {
+    if (!current || mentorLoading) return;
+    const id = current.id;
+    setMentorLoading(true);
+    try {
+      const res = await fetch("/api/mentor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mode: "mentor",
+          question: current.question,
+          action: current.action,
+          reflection: reflections[id] ?? "",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.text) {
+        setMentorById((m) => ({ ...m, [id]: { text: data.text as string } }));
+      } else {
+        const error =
+          data?.error === "mentor_unconfigured"
+            ? "O mentor ainda não foi ativado (falta a chave da API no servidor)."
+            : data?.error === "rate_limited"
+              ? "Muitas perguntas agora. Tente em instantes."
+              : "O mentor não respondeu. Tente de novo.";
+        setMentorById((m) => ({ ...m, [id]: { error } }));
+      }
+    } catch {
+      setMentorById((m) => ({
+        ...m,
+        [id]: { error: "Sem conexão com o mentor." },
+      }));
+    } finally {
+      setMentorLoading(false);
+    }
+  }
+
+  function setPlan(id: string, text: string) {
+    setPlans((prev) => {
+      const nextP = { ...prev, [id]: text };
+      try {
+        localStorage.setItem("metanoia:plans", JSON.stringify(nextP));
+      } catch {
+        /* ignore */
+      }
+      return nextP;
+    });
+  }
+
+  function startSchulte() {
+    setGrid(shuffle(Array.from({ length: 25 }, (_, i) => i + 1)));
+    setNextNum(1);
+    setStartedAt(null);
+    setFinishedMs(null);
+    setWrongCell(null);
+  }
+
+  function tapCell(n: number) {
+    if (finishedMs !== null) return;
+    if (n !== nextNum) {
+      setWrongCell(n);
+      window.setTimeout(() => setWrongCell(null), 300);
+      return;
+    }
+    const start = startedAt ?? nowMs();
+    if (startedAt === null) {
+      setStartedAt(start);
+      setNow(start);
+    }
+    if (n === 25) {
+      const ms = nowMs() - start;
+      setFinishedMs(ms);
+      setBrain((prev) => {
+        const today = isoDay();
+        let streak: number;
+        if (prev.lastDate === today) streak = prev.streak || 1;
+        else if (prev.lastDate === isoDay(-1)) streak = prev.streak + 1;
+        else streak = 1;
+        const best = prev.best === null ? ms : Math.min(prev.best, ms);
+        const nextB: Brain = {
+          best,
+          streak,
+          lastDate: today,
+          plays: prev.plays + 1,
+        };
+        try {
+          localStorage.setItem("metanoia:schulte", JSON.stringify(nextB));
+        } catch {
+          /* ignore */
+        }
+        return nextB;
+      });
+    } else {
+      setNextNum(n + 1);
+    }
+  }
+
   return (
     <main className="stage">
       <header className="topbar">
@@ -227,6 +454,12 @@ export default function Home() {
         >
           Quiz
         </button>
+        <button
+          className={`tab ${mode === "cerebro" ? "on" : ""}`}
+          onClick={() => setMode("cerebro")}
+        >
+          Cérebro
+        </button>
       </nav>
 
       {/* ---------------- ENCARAR ---------------- */}
@@ -257,6 +490,57 @@ export default function Home() {
                 <div className="eyebrow">Aja agora</div>
                 <h1 className="action">{current.action}</h1>
 
+                {mounted && (
+                  <div className="assist">
+                    <div className="assist-label">Comece pequeno</div>
+                    {stepsById[current.id] ? (
+                      <ol className="steps-list">
+                        {stepsById[current.id].map((s, i) => {
+                          const on = !!checked[`${current.id}#${i}`];
+                          return (
+                            <li key={i} className={on ? "on" : ""}>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={on}
+                                  onChange={() => toggleCheck(current.id, i)}
+                                />
+                                <span>{s}</span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    ) : (
+                      <button
+                        className="ai-btn"
+                        onClick={askSteps}
+                        disabled={stepsLoading}
+                      >
+                        {stepsLoading
+                          ? "Quebrando…"
+                          : "▸ Não sei começar — micropassos"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {mounted && (
+                  <div className="assist">
+                    <div className="assist-label">Quando vou agir</div>
+                    <input
+                      className="plan-field"
+                      placeholder="Se [horário/lugar], então executo isto…"
+                      value={plans[current.id] ?? ""}
+                      onChange={(e) => setPlan(current.id, e.target.value)}
+                    />
+                    <p className="plan-note">
+                      <b>Se → Então:</b> amarrar a ação a um gatilho concreto
+                      (quando e onde) multiplica a chance de você realmente agir.
+                    </p>
+                  </div>
+                )}
+
                 <div className="q-block">
                   <div className="q-label">Encare a raiz</div>
                   <p className="question">{current.question}</p>
@@ -269,6 +553,38 @@ export default function Home() {
                     <span className="src">— {current.anchor.source}</span>
                   </span>
                 </div>
+
+                {mounted && (
+                  <div className="assist">
+                    <div className="assist-label">Sua reflexão</div>
+                    <textarea
+                      className="reflect"
+                      placeholder="Escreva o que essa pergunta move em você… (opcional)"
+                      value={reflections[current.id] ?? ""}
+                      onChange={(e) => setReflection(current.id, e.target.value)}
+                    />
+                    <button
+                      className="ai-btn"
+                      style={{ marginTop: 10 }}
+                      onClick={askMentor}
+                      disabled={mentorLoading}
+                    >
+                      {mentorLoading ? "Pensando…" : "✦ Aprofundar com o mentor"}
+                    </button>
+                    {mentorById[current.id]?.text && (
+                      <div className="mentor">
+                        <span className="mentor-label">Mentor</span>
+                        <p>{mentorById[current.id]?.text}</p>
+                      </div>
+                    )}
+                    {mentorById[current.id]?.error && (
+                      <div className="mentor err">
+                        <span className="mentor-label">Mentor</span>
+                        <p>{mentorById[current.id]?.error}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </article>
             ) : (
               <article className="card">
@@ -487,6 +803,87 @@ export default function Home() {
 
           <p className="subtle">
             Acertos nesta rodada: {score}/{quiz.length}
+          </p>
+        </div>
+      )}
+
+      {/* ---------------- CÉREBRO ---------------- */}
+      {mode === "cerebro" && (
+        <div className="lang brain">
+          <div className="brain-stats">
+            <span>
+              Recorde: <b>{brain.best !== null ? fmtMs(brain.best) : "—"}</b>
+            </span>
+            <span>
+              Sequência: <b>{brain.streak}</b>
+            </span>
+            <span>
+              Rodadas: <b>{brain.plays}</b>
+            </span>
+          </div>
+
+          <div className="card">
+            {grid.length === 0 ? (
+              <>
+                <div className="brain-hint">
+                  Toque os números de 1 a 25 em ordem, o mais rápido que
+                  conseguir.
+                </div>
+                <div className="actions">
+                  <button className="btn btn-primary" onClick={startSchulte}>
+                    Começar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="brain-timer">
+                  {startedAt === null
+                    ? "0.0s"
+                    : fmtMs(finishedMs ?? Math.max(0, now - startedAt))}
+                </div>
+                {finishedMs !== null ? (
+                  <div className="brain-hint">
+                    {brain.best !== null && finishedMs <= brain.best
+                      ? "Novo recorde! 🔥"
+                      : "Feito. Amanhã, mais rápido."}
+                  </div>
+                ) : (
+                  <div className="brain-hint">Próximo: {nextNum}</div>
+                )}
+                <div className="schulte">
+                  {grid.map((n) => {
+                    const done = n < nextNum || finishedMs !== null;
+                    const cls =
+                      wrongCell === n ? "wrong" : done ? "done" : "";
+                    return (
+                      <button
+                        key={n}
+                        className={`sq ${cls}`}
+                        onClick={() => tapCell(n)}
+                        disabled={finishedMs !== null}
+                      >
+                        {n}
+                      </button>
+                    );
+                  })}
+                </div>
+                {finishedMs !== null && (
+                  <div className="actions">
+                    <button className="btn btn-primary" onClick={startSchulte}>
+                      De novo
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <p className="brain-note">
+            A Tabela de Schulte treina atenção focada, visão periférica e
+            velocidade de processamento. Praticada todo dia, a queda no seu tempo
+            é a neuroplasticidade em ação — o cérebro reforçando as conexões que
+            você mais usa.
           </p>
         </div>
       )}

@@ -200,6 +200,7 @@ export default function Home() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [pulse, setPulse] = useState(false);
   const [celebrate, setCelebrate] = useState(0);
+  const [reminderOn, setReminderOn] = useState(false);
 
   // ---- Idiomas / Quiz ----
   const [lang, setLang] = useState<Lang>("en");
@@ -269,6 +270,7 @@ export default function Home() {
     setMounted(true);
     warmVoices();
     setCurrentId(pickId(CHALLENGES));
+    setReminderOn(localStorage.getItem("metanoia:reminder") === "on");
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -291,6 +293,53 @@ export default function Home() {
     else document.documentElement.removeAttribute("data-theme");
     try {
       localStorage.setItem("metanoia:theme", t);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Lembrete diário: opt-in por notificação + periodicSync (best-effort no PWA instalado).
+  async function toggleReminder() {
+    type PeriodicReg = {
+      periodicSync?: {
+        register: (tag: string, opts: { minInterval: number }) => Promise<void>;
+        unregister?: (tag: string) => Promise<void>;
+      };
+    };
+    if (reminderOn) {
+      setReminderOn(false);
+      try {
+        localStorage.setItem("metanoia:reminder", "off");
+        const reg = await navigator.serviceWorker?.ready;
+        await (reg as unknown as PeriodicReg)?.periodicSync?.unregister?.(
+          "metanoia-daily",
+        );
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    try {
+      if (!("Notification" in window)) return;
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") return;
+      localStorage.setItem("metanoia:reminder", "on");
+      setReminderOn(true);
+      const reg = await navigator.serviceWorker?.ready;
+      if (!reg) return;
+      reg.showNotification("METANOIA ⚔️", {
+        body: "Lembrete diário ativado. Encare seu desafio de hoje.",
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+      });
+      try {
+        await (reg as unknown as PeriodicReg).periodicSync?.register(
+          "metanoia-daily",
+          { minInterval: 24 * 60 * 60 * 1000 },
+        );
+      } catch {
+        /* sem periodicSync: segue só com o opt-in */
+      }
     } catch {
       /* ignore */
     }
@@ -584,6 +633,20 @@ export default function Home() {
         </div>
         <div className="topbar-actions">
           <InstallButton />
+          {mounted && (
+            <button
+              className="iconbtn"
+              onClick={toggleReminder}
+              aria-label={
+                reminderOn ? "Desativar lembrete diário" : "Ativar lembrete diário"
+              }
+              title={
+                reminderOn ? "Lembrete diário ativado" : "Ativar lembrete diário"
+              }
+            >
+              {reminderOn ? "🔔" : "🔕"}
+            </button>
+          )}
           {mounted && streak > 0 && (
             <span className="iconbtn flame" title="Dias seguidos encarando">
               🔥 {streak}

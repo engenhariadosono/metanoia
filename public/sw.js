@@ -1,7 +1,7 @@
 // METANOIA — service worker (offline-first do app shell)
 // Estratégia: precache do shell; network-first nas navegações (fresco online,
 // cache no offline); cache-first nos assets estáticos; nunca cacheia /api.
-const CACHE = "metanoia-v1";
+const CACHE = "metanoia-v2";
 const SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -65,5 +65,36 @@ self.addEventListener("fetch", (event) => {
           return res;
         })
     )
+  );
+});
+
+// Lembrete diário (periodicSync, best-effort em PWA instalado no Android)
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === "metanoia-daily") {
+    event.waitUntil(
+      self.registration.showNotification("METANOIA — encare seu desafio", {
+        body: "Um desafio de coragem te espera hoje. ⚔️",
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        tag: "metanoia-daily",
+      })
+    );
+  }
+});
+
+// Toque na notificação: foca uma aba aberta ou abre o app
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((list) => {
+        for (const c of list) {
+          if (c.url.startsWith(self.location.origin) && "focus" in c) {
+            return c.focus();
+          }
+        }
+        return self.clients.openWindow("/");
+      })
   );
 });

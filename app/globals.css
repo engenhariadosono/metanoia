@@ -856,7 +856,7 @@ body {
 /* ============ Polimento visual & interatividade ============ */
 .actions { position: relative; }
 
-/* Celebração: golpe de vitória (onda de choque + fagulhas) */
+/* Celebração minimalista: um anel fino + 4 fagulhas discretas */
 .strike {
   position: absolute;
   left: 50%; top: 50%;
@@ -866,39 +866,33 @@ body {
 }
 .strike .shock {
   position: absolute;
-  left: -13px; top: -13px;
-  width: 26px; height: 26px;
+  left: -11px; top: -11px;
+  width: 22px; height: 22px;
   border-radius: 999px;
-  border: 3px solid rgba(255, 200, 120, 0.9);
+  border: 2px solid rgba(255, 208, 150, 0.7);
   opacity: 0;
-  animation: shockwave 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  animation: shockwave 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
 }
-.strike .shock2 { border-color: rgba(226, 96, 74, 0.7); animation-delay: 0.08s; }
 @keyframes shockwave {
-  0%   { opacity: 0.9; transform: scale(0.3); border-width: 4px; }
-  70%  { opacity: 0.5; }
-  100% { opacity: 0; transform: scale(6.5); border-width: 1px; }
+  0%   { opacity: 0.7; transform: scale(0.4); }
+  100% { opacity: 0; transform: scale(4.2); }
 }
 .strike .spark {
   position: absolute;
-  left: -3px; top: -3px;
-  width: 6px; height: 6px;
+  left: -2px; top: -2px;
+  width: 4px; height: 4px;
   border-radius: 999px;
-  background: radial-gradient(circle at 50% 40%, #fff2d6, #ffb24d 55%, transparent 70%);
+  background: radial-gradient(circle at 50% 40%, #fff2d6, #ffb24d 60%, transparent 72%);
   opacity: 0;
   will-change: transform, opacity;
-  animation: sparkFly 0.62s ease-out forwards;
+  animation: sparkFly 0.5s ease-out forwards;
 }
-.strike .spark:nth-child(3)  { --a: 0deg;   --d: 62px; }
-.strike .spark:nth-child(4)  { --a: 45deg;  --d: 54px; }
-.strike .spark:nth-child(5)  { --a: 90deg;  --d: 40px; }
-.strike .spark:nth-child(6)  { --a: 135deg; --d: 54px; }
-.strike .spark:nth-child(7)  { --a: 180deg; --d: 62px; }
-.strike .spark:nth-child(8)  { --a: 225deg; --d: 54px; }
-.strike .spark:nth-child(9)  { --a: 270deg; --d: 40px; }
-.strike .spark:nth-child(10) { --a: 315deg; --d: 54px; }
+.strike .spark:nth-child(2) { --a: 45deg;  --d: 28px; }
+.strike .spark:nth-child(3) { --a: 135deg; --d: 28px; }
+.strike .spark:nth-child(4) { --a: 225deg; --d: 28px; }
+.strike .spark:nth-child(5) { --a: 315deg; --d: 28px; }
 @keyframes sparkFly {
-  0%   { opacity: 1; transform: rotate(var(--a)) translateX(4px) scale(1.2); }
+  0%   { opacity: 0.85; transform: rotate(var(--a)) translateX(4px); }
   100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--d)) scale(0.4); }
 }
 
@@ -932,7 +926,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(120deg, transparent 32%, rgba(255, 255, 255, 0.5) 50%, transparent 68%);
+  background: linear-gradient(120deg, transparent 38%, rgba(255, 255, 255, 0.16) 50%, transparent 62%);
   transform: translateX(-130%);
   transition: transform 0.6s ease;
 }

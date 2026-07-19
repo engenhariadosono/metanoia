@@ -18,6 +18,9 @@ export const viewport: Viewport = {
 // Aplica o tema salvo antes da pintura, evitando flash de cor errada.
 const themeScript = `try{if(localStorage.getItem('metanoia:theme')==='light'){document.documentElement.setAttribute('data-theme','light')}}catch(e){}`;
 
+// Registra o service worker (offline + carregamento instantâneo).
+const swScript = `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,6 +30,7 @@ export default function RootLayout({
     <html lang="pt-BR" className="h-full antialiased" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: swScript }} />
       </head>
       <body className="min-h-full flex flex-col">
         <div className="aurora" aria-hidden="true">

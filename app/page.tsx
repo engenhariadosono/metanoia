@@ -777,11 +777,6 @@ export default function Home() {
               {celebrate > 0 && (
                 <div className="strike" key={celebrate} aria-hidden="true">
                   <i className="shock" />
-                  <i className="shock shock2" />
-                  <span className="spark" />
-                  <span className="spark" />
-                  <span className="spark" />
-                  <span className="spark" />
                   <span className="spark" />
                   <span className="spark" />
                   <span className="spark" />

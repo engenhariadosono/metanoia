@@ -13,6 +13,7 @@ import {
 import { THEMES, ALL_PHRASES, type Phrase } from "@/lib/phrases";
 import { useProgress } from "@/lib/useProgress";
 import { speak, warmVoices } from "@/lib/speak";
+import { track } from "@vercel/analytics";
 import InstallButton from "./InstallButton";
 
 type Mode = "encarar" | "idiomas" | "quiz" | "cerebro" | "decidir";
@@ -325,6 +326,7 @@ export default function Home() {
       if (perm !== "granted") return;
       localStorage.setItem("metanoia:reminder", "on");
       setReminderOn(true);
+      track("lembrete_on");
       const reg = await navigator.serviceWorker?.ready;
       if (!reg) return;
       reg.showNotification("METANOIA ⚔️", {
@@ -362,6 +364,7 @@ export default function Home() {
   function done() {
     if (!current) return;
     markDone(current.id);
+    track("encarei", { area: current.category });
     setPulse(true);
     setCelebrate((c) => c + 1);
     window.setTimeout(() => setPulse(false), 500);
@@ -419,6 +422,7 @@ export default function Home() {
     if (!current || stepsLoading) return;
     const id = current.id;
     setStepsLoading(true);
+    track("mentor", { tipo: "micropassos" });
     try {
       const res = await fetch("/api/mentor", {
         method: "POST",
@@ -442,6 +446,7 @@ export default function Home() {
     if (!current || mentorLoading) return;
     const id = current.id;
     setMentorLoading(true);
+    track("mentor", { tipo: "reflexao" });
     try {
       const res = await fetch("/api/mentor", {
         method: "POST",
@@ -600,6 +605,7 @@ export default function Home() {
     const b = decB.trim();
     if (!a && !b) return;
     setDecLoading(true);
+    track("mentor", { tipo: "decidir" });
     try {
       const res = await fetch("/api/mentor", {
         method: "POST",

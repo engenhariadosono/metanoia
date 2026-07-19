@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { track } from "@vercel/analytics";
 
 // beforeinstallprompt não está no lib.dom padrão — tipagem mínima.
 interface InstallPromptEvent extends Event {
@@ -18,6 +19,7 @@ export default function InstallButton() {
       setDeferred(e as InstallPromptEvent);
     }
     function onInstalled() {
+      track("instalado");
       setGone(true);
       setDeferred(null);
     }

@@ -17,6 +17,15 @@ const STEPS_SYSTEM = `Você decompõe uma AÇÃO em exatamente 3 micropassos abs
 - Cada passo em UMA linha, sem numeração, sem marcadores, sem introdução.
 - Português do Brasil. Nada além das 3 linhas.`;
 
+const DECIDIR_SYSTEM = `Você é o mentor do METANOIA ajudando alguém dividido entre DUAS opções.
+Sua função não é escolher por ela, e sim trazer CLAREZA sobre o que cada caminho revela.
+Regras:
+- 3 a 5 frases curtas. Aponte o medo por trás de cada opção e o valor que cada uma protege.
+- Use no máximo uma das lentes clássicas (arrependimento daqui a 10 anos, conselho ao melhor amigo, custo de não decidir) se ajudar.
+- Termine SEMPRE com UMA única pergunta que force a pessoa a nomear o que ela realmente quer.
+- Tom firme, adulto, respeitoso. Sem clichês de autoajuda, sem decidir por ela, sem listas, sem introdução.
+- Português do Brasil.`;
+
 function str(v: unknown, max: number): string {
   return typeof v === "string" ? v.slice(0, max).trim() : "";
 }
@@ -35,10 +44,17 @@ export async function POST(req: Request) {
   }
 
   const b = body as Record<string, unknown>;
-  const mode = b?.mode === "steps" ? "steps" : "mentor";
+  const mode =
+    b?.mode === "steps"
+      ? "steps"
+      : b?.mode === "decidir"
+        ? "decidir"
+        : "mentor";
   const action = str(b?.action, 400);
   const question = str(b?.question, 500);
   const reflection = str(b?.reflection, 2000);
+  const optionA = str(b?.optionA, 300);
+  const optionB = str(b?.optionB, 300);
 
   if (mode === "mentor" && !question) {
     return Response.json({ error: "missing_question" }, { status: 400 });
@@ -46,14 +62,24 @@ export async function POST(req: Request) {
   if (mode === "steps" && !action) {
     return Response.json({ error: "missing_action" }, { status: 400 });
   }
+  if (mode === "decidir" && !optionA && !optionB) {
+    return Response.json({ error: "missing_options" }, { status: 400 });
+  }
 
   const client = new Anthropic({ apiKey });
 
-  const system = mode === "steps" ? STEPS_SYSTEM : MENTOR_SYSTEM;
+  const system =
+    mode === "steps"
+      ? STEPS_SYSTEM
+      : mode === "decidir"
+        ? DECIDIR_SYSTEM
+        : MENTOR_SYSTEM;
   const userText =
     mode === "steps"
       ? `Ação: ${action}\n\nDê exatamente 3 micropassos.`
-      : `Pergunta de raiz: ${question}\nAção proposta: ${action || "(sem ação)"}\n\nReflexão da pessoa: ${reflection || "(ainda não escreveu)"}\n\nDevolva a provocação.`;
+      : mode === "decidir"
+        ? `Opção A: ${optionA || "(vazia)"}\nOpção B: ${optionB || "(vazia)"}\n\nDevolva a leitura de clareza.`
+        : `Pergunta de raiz: ${question}\nAção proposta: ${action || "(sem ação)"}\n\nReflexão da pessoa: ${reflection || "(ainda não escreveu)"}\n\nDevolva a provocação.`;
 
   try {
     const msg = await client.messages.create({

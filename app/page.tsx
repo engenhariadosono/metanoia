@@ -14,7 +14,7 @@ import { THEMES, ALL_PHRASES, type Phrase } from "@/lib/phrases";
 import { useProgress } from "@/lib/useProgress";
 import { speak, warmVoices } from "@/lib/speak";
 
-type Mode = "encarar" | "idiomas" | "quiz" | "cerebro";
+type Mode = "encarar" | "idiomas" | "quiz" | "cerebro" | "decidir";
 type CatFilter = CategoryId | "todas";
 type IntFilter = Intensity | "todas";
 type Lang = "en" | "ru";
@@ -140,6 +140,54 @@ function nowMs(): number {
   return Date.now();
 }
 
+// ---- Stroop ("Cores"): controle executivo / inibição ----
+const STROOP_TRIALS = 20;
+const COLORS = [
+  { name: "Vermelho", hex: "#e2604a" },
+  { name: "Azul", hex: "#3aa0e0" },
+  { name: "Verde", hex: "#4bbf7b" },
+  { name: "Roxo", hex: "#7c5cff" },
+  { name: "Amarelo", hex: "#e0a13a" },
+];
+
+interface Trial {
+  wordIdx: number;
+  inkIdx: number;
+  opts: number[];
+}
+
+function makeTrial(): Trial {
+  const wordIdx = Math.floor(Math.random() * COLORS.length);
+  let inkIdx = Math.floor(Math.random() * COLORS.length);
+  if (inkIdx === wordIdx) {
+    inkIdx =
+      (wordIdx + 1 + Math.floor(Math.random() * (COLORS.length - 1))) %
+      COLORS.length;
+  }
+  const distractors = shuffle(
+    COLORS.map((_, i) => i).filter((i) => i !== inkIdx),
+  ).slice(0, 3);
+  return { wordIdx, inkIdx, opts: shuffle([inkIdx, ...distractors]) };
+}
+
+function loadStroop(): Brain {
+  const def: Brain = { best: null, streak: 0, lastDate: null, plays: 0 };
+  if (typeof window === "undefined") return def;
+  try {
+    return {
+      ...def,
+      ...JSON.parse(localStorage.getItem("metanoia:stroop") || "{}"),
+    };
+  } catch {
+    return def;
+  }
+}
+
+// Sorteio isolado em módulo (evita Math.random durante o render).
+function coinFlip(): "A" | "B" {
+  return Math.random() < 0.5 ? "A" : "B";
+}
+
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<Mode>("encarar");
@@ -180,6 +228,25 @@ export default function Home() {
   const [finishedMs, setFinishedMs] = useState<number | null>(null);
   const [wrongCell, setWrongCell] = useState<number | null>(null);
   const [now, setNow] = useState(0);
+  const [brainGame, setBrainGame] = useState<"schulte" | "stroop">("schulte");
+
+  // Stroop
+  const [stroopStats, setStroopStats] = useState<Brain>(loadStroop);
+  const [stroopTrial, setStroopTrial] = useState<Trial | null>(null);
+  const [stroopI, setStroopI] = useState(0);
+  const [stroopStart, setStroopStart] = useState<number | null>(null);
+  const [stroopMs, setStroopMs] = useState<number | null>(null);
+  const [stroopFlash, setStroopFlash] = useState(false);
+
+  // Decidir
+  const [decA, setDecA] = useState("");
+  const [decB, setDecB] = useState("");
+  const [coin, setCoin] = useState<"A" | "B" | "flipping" | null>(null);
+  const [decMentor, setDecMentor] = useState<{
+    text?: string;
+    error?: string;
+  } | null>(null);
+  const [decLoading, setDecLoading] = useState(false);
 
   const { streak, totalDone, doneToday, markDone } = useProgress();
 
@@ -203,12 +270,16 @@ export default function Home() {
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
-  // Cronômetro vivo do Schulte (setState só no callback do interval, não no corpo).
+  // Cronômetro vivo dos jogos do Cérebro (setState só no callback do interval).
+  const brainRunning =
+    mode === "cerebro" &&
+    ((brainGame === "schulte" && startedAt !== null && finishedMs === null) ||
+      (brainGame === "stroop" && stroopStart !== null && stroopMs === null));
   useEffect(() => {
-    if (mode !== "cerebro" || startedAt === null || finishedMs !== null) return;
+    if (!brainRunning) return;
     const iv = window.setInterval(() => setNow(nowMs()), 100);
     return () => window.clearInterval(iv);
-  }, [mode, startedAt, finishedMs]);
+  }, [brainRunning]);
 
   function toggleTheme() {
     const t = theme === "dark" ? "light" : "dark";
@@ -412,6 +483,95 @@ export default function Home() {
     }
   }
 
+  function startStroop() {
+    setStroopI(0);
+    setStroopStart(null);
+    setStroopMs(null);
+    setStroopFlash(false);
+    setStroopTrial(makeTrial());
+    setNow(0);
+  }
+
+  function answerStroop(colorIdx: number) {
+    if (!stroopTrial || stroopMs !== null) return;
+    if (colorIdx !== stroopTrial.inkIdx) {
+      setStroopFlash(true);
+      window.setTimeout(() => setStroopFlash(false), 260);
+      return;
+    }
+    const start = stroopStart ?? nowMs();
+    if (stroopStart === null) {
+      setStroopStart(start);
+      setNow(start);
+    }
+    const done = stroopI + 1;
+    if (done >= STROOP_TRIALS) {
+      const ms = nowMs() - start;
+      setStroopI(done);
+      setStroopMs(ms);
+      setStroopStats((prev) => {
+        const today = isoDay();
+        let streak: number;
+        if (prev.lastDate === today) streak = prev.streak || 1;
+        else if (prev.lastDate === isoDay(-1)) streak = prev.streak + 1;
+        else streak = 1;
+        const best = prev.best === null ? ms : Math.min(prev.best, ms);
+        const nextS: Brain = {
+          best,
+          streak,
+          lastDate: today,
+          plays: prev.plays + 1,
+        };
+        try {
+          localStorage.setItem("metanoia:stroop", JSON.stringify(nextS));
+        } catch {
+          /* ignore */
+        }
+        return nextS;
+      });
+    } else {
+      setStroopI(done);
+      setStroopTrial(makeTrial());
+    }
+  }
+
+  function flipCoin() {
+    if (coin === "flipping") return;
+    setCoin("flipping");
+    setDecMentor(null);
+    window.setTimeout(() => setCoin(coinFlip()), 750);
+  }
+
+  async function askDecision() {
+    if (decLoading) return;
+    const a = decA.trim();
+    const b = decB.trim();
+    if (!a && !b) return;
+    setDecLoading(true);
+    try {
+      const res = await fetch("/api/mentor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mode: "decidir", optionA: a, optionB: b }),
+      });
+      const data = await res.json();
+      if (res.ok && data.text) {
+        setDecMentor({ text: data.text as string });
+      } else {
+        setDecMentor({
+          error:
+            data?.error === "mentor_unconfigured"
+              ? "O mentor ainda não foi ativado (falta a chave da API no servidor)."
+              : "O mentor não respondeu. Tente de novo.",
+        });
+      }
+    } catch {
+      setDecMentor({ error: "Sem conexão com o mentor." });
+    } finally {
+      setDecLoading(false);
+    }
+  }
+
   return (
     <main className="stage">
       <header className="topbar">
@@ -459,6 +619,12 @@ export default function Home() {
           onClick={() => setMode("cerebro")}
         >
           Cérebro
+        </button>
+        <button
+          className={`tab ${mode === "decidir" ? "on" : ""}`}
+          onClick={() => setMode("decidir")}
+        >
+          Decidir
         </button>
       </nav>
 
@@ -810,80 +976,301 @@ export default function Home() {
       {/* ---------------- CÉREBRO ---------------- */}
       {mode === "cerebro" && (
         <div className="lang brain">
-          <div className="brain-stats">
-            <span>
-              Recorde: <b>{brain.best !== null ? fmtMs(brain.best) : "—"}</b>
-            </span>
-            <span>
-              Sequência: <b>{brain.streak}</b>
-            </span>
-            <span>
-              Rodadas: <b>{brain.plays}</b>
-            </span>
+          <div className="langbar">
+            <button
+              className={`pill ${brainGame === "schulte" ? "on" : ""}`}
+              onClick={() => setBrainGame("schulte")}
+            >
+              🔢 Números
+            </button>
+            <button
+              className={`pill ${brainGame === "stroop" ? "on" : ""}`}
+              onClick={() => setBrainGame("stroop")}
+            >
+              🎨 Cores
+            </button>
           </div>
 
-          <div className="card">
-            {grid.length === 0 ? (
-              <>
-                <div className="brain-hint">
-                  Toque os números de 1 a 25 em ordem, o mais rápido que
-                  conseguir.
-                </div>
-                <div className="actions">
-                  <button className="btn btn-primary" onClick={startSchulte}>
-                    Começar
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="brain-timer">
-                  {startedAt === null
-                    ? "0.0s"
-                    : fmtMs(finishedMs ?? Math.max(0, now - startedAt))}
-                </div>
-                {finishedMs !== null ? (
-                  <div className="brain-hint">
-                    {brain.best !== null && finishedMs <= brain.best
-                      ? "Novo recorde! 🔥"
-                      : "Feito. Amanhã, mais rápido."}
-                  </div>
-                ) : (
-                  <div className="brain-hint">Próximo: {nextNum}</div>
-                )}
-                <div className="schulte">
-                  {grid.map((n) => {
-                    const done = n < nextNum || finishedMs !== null;
-                    const cls =
-                      wrongCell === n ? "wrong" : done ? "done" : "";
-                    return (
-                      <button
-                        key={n}
-                        className={`sq ${cls}`}
-                        onClick={() => tapCell(n)}
-                        disabled={finishedMs !== null}
-                      >
-                        {n}
+          {brainGame === "schulte" ? (
+            <>
+              <div className="brain-stats">
+                <span>
+                  Recorde: <b>{brain.best !== null ? fmtMs(brain.best) : "—"}</b>
+                </span>
+                <span>
+                  Sequência: <b>{brain.streak}</b>
+                </span>
+                <span>
+                  Rodadas: <b>{brain.plays}</b>
+                </span>
+              </div>
+
+              <div className="card">
+                {grid.length === 0 ? (
+                  <>
+                    <div className="brain-hint">
+                      Toque os números de 1 a 25 em ordem, o mais rápido que
+                      conseguir.
+                    </div>
+                    <div className="actions">
+                      <button className="btn btn-primary" onClick={startSchulte}>
+                        Começar
                       </button>
-                    );
-                  })}
-                </div>
-                {finishedMs !== null && (
-                  <div className="actions">
-                    <button className="btn btn-primary" onClick={startSchulte}>
-                      De novo
-                    </button>
-                  </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="brain-timer">
+                      {startedAt === null
+                        ? "0.0s"
+                        : fmtMs(finishedMs ?? Math.max(0, now - startedAt))}
+                    </div>
+                    {finishedMs !== null ? (
+                      <div className="brain-hint">
+                        {brain.best !== null && finishedMs <= brain.best
+                          ? "Novo recorde! 🔥"
+                          : "Feito. Amanhã, mais rápido."}
+                      </div>
+                    ) : (
+                      <div className="brain-hint">Próximo: {nextNum}</div>
+                    )}
+                    <div className="schulte">
+                      {grid.map((n) => {
+                        const done = n < nextNum || finishedMs !== null;
+                        const cls =
+                          wrongCell === n ? "wrong" : done ? "done" : "";
+                        return (
+                          <button
+                            key={n}
+                            className={`sq ${cls}`}
+                            onClick={() => tapCell(n)}
+                            disabled={finishedMs !== null}
+                          >
+                            {n}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {finishedMs !== null && (
+                      <div className="actions">
+                        <button
+                          className="btn btn-primary"
+                          onClick={startSchulte}
+                        >
+                          De novo
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
-              </>
-            )}
+              </div>
+
+              <p className="brain-note">
+                A Tabela de Schulte treina atenção focada, visão periférica e
+                velocidade de processamento. Praticada todo dia, a queda no seu
+                tempo é a neuroplasticidade em ação — o cérebro reforçando as
+                conexões que você mais usa.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="brain-stats">
+                <span>
+                  Recorde:{" "}
+                  <b>
+                    {stroopStats.best !== null ? fmtMs(stroopStats.best) : "—"}
+                  </b>
+                </span>
+                <span>
+                  Sequência: <b>{stroopStats.streak}</b>
+                </span>
+                <span>
+                  Rodadas: <b>{stroopStats.plays}</b>
+                </span>
+              </div>
+
+              <div className={`card ${stroopFlash ? "flash-err" : ""}`}>
+                {!stroopTrial ? (
+                  <>
+                    <div className="brain-hint">
+                      Toque na COR da tinta — não na palavra. 20 rodadas, o mais
+                      rápido que puder.
+                    </div>
+                    <div className="actions">
+                      <button className="btn btn-primary" onClick={startStroop}>
+                        Começar
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="brain-timer">
+                      {stroopStart === null
+                        ? "0.0s"
+                        : fmtMs(stroopMs ?? Math.max(0, now - stroopStart))}
+                    </div>
+                    {stroopMs !== null ? (
+                      <div className="brain-hint">
+                        {stroopStats.best !== null &&
+                        stroopMs <= stroopStats.best
+                          ? "Novo recorde! 🔥"
+                          : "Feito. Amanhã, mais nítido."}
+                      </div>
+                    ) : (
+                      <div className="brain-hint">
+                        {stroopI}/{STROOP_TRIALS}
+                      </div>
+                    )}
+                    {stroopMs === null && (
+                      <>
+                        <div
+                          className="stroop-word"
+                          style={{ color: COLORS[stroopTrial.inkIdx].hex }}
+                        >
+                          {COLORS[stroopTrial.wordIdx].name.toUpperCase()}
+                        </div>
+                        <div className="stroop-grid">
+                          {stroopTrial.opts.map((i) => (
+                            <button
+                              key={i}
+                              className="stroop-opt"
+                              onClick={() => answerStroop(i)}
+                            >
+                              {COLORS[i].name}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {stroopMs !== null && (
+                      <div className="actions">
+                        <button
+                          className="btn btn-primary"
+                          onClick={startStroop}
+                        >
+                          De novo
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <p className="brain-note">
+                O Teste de Stroop força o cérebro a inibir a leitura automática e
+                escolher a cor real — treino direto do controle executivo
+                (córtex pré-frontal). A prática diária fortalece foco e
+                autocontrole.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ---------------- DECIDIR ---------------- */}
+      {mode === "decidir" && (
+        <div className="lang decide">
+          <p className="decide-intro">
+            Duas escolhas na sua frente? Escreva-as e olhe por ângulos que os
+            bons decisores usam.
+          </p>
+
+          <div className="card">
+            <div className="assist-label">Opção A</div>
+            <input
+              className="plan-field"
+              placeholder="Ex.: aceitar o convite"
+              value={decA}
+              onChange={(e) => setDecA(e.target.value)}
+            />
+            <div className="assist-label" style={{ marginTop: 14 }}>
+              Opção B
+            </div>
+            <input
+              className="plan-field"
+              placeholder="Ex.: recusar e seguir como está"
+              value={decB}
+              onChange={(e) => setDecB(e.target.value)}
+            />
+
+            <div className="assist">
+              <div className="assist-label">Lentes de decisão</div>
+              <ul className="lens">
+                <li>
+                  <b>10 / 10 / 10:</b> como você se sentirá sobre isto em 10
+                  minutos, 10 meses e 10 anos?
+                </li>
+                <li>
+                  <b>Conselho ao amigo:</b> se fosse seu melhor amigo nessa
+                  situação, o que você diria?
+                </li>
+                <li>
+                  <b>Arrependimento:</b> daqui a 10 anos, pesaria mais ter feito
+                  ou não ter feito?
+                </li>
+                <li>
+                  <b>Pré-morte:</b> imagine que deu errado — qual foi a causa
+                  provável? Mitigue-a.
+                </li>
+                <li>
+                  <b>Custo de não decidir:</b> o que continua acontecendo
+                  enquanto você não escolhe?
+                </li>
+              </ul>
+            </div>
+
+            <div className="assist">
+              <div className="assist-label">Ainda em dúvida?</div>
+              <button
+                className="ai-btn"
+                onClick={flipCoin}
+                disabled={coin === "flipping" || (!decA && !decB)}
+              >
+                🪙 Jogar a moeda
+              </button>
+              {coin === "flipping" && (
+                <div className="coin-result">Girando…</div>
+              )}
+              {(coin === "A" || coin === "B") && (
+                <div className="coin-result">
+                  A moeda caiu em{" "}
+                  <b>{coin === "A" ? decA || "Opção A" : decB || "Opção B"}</b>.
+                  <span>
+                    Enquanto ela girava, qual resultado você torceu para sair?
+                    Essa é a sua resposta.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="assist">
+              <div className="assist-label">Clareza do mentor</div>
+              <button
+                className="ai-btn"
+                onClick={askDecision}
+                disabled={decLoading || (!decA && !decB)}
+              >
+                {decLoading ? "Pensando…" : "✦ Pedir clareza ao mentor"}
+              </button>
+              {decMentor?.text && (
+                <div className="mentor">
+                  <span className="mentor-label">Mentor</span>
+                  <p>{decMentor.text}</p>
+                </div>
+              )}
+              {decMentor?.error && (
+                <div className="mentor err">
+                  <span className="mentor-label">Mentor</span>
+                  <p>{decMentor.error}</p>
+                </div>
+              )}
+            </div>
           </div>
 
           <p className="brain-note">
-            A Tabela de Schulte treina atenção focada, visão periférica e
-            velocidade de processamento. Praticada todo dia, a queda no seu tempo
-            é a neuroplasticidade em ação — o cérebro reforçando as conexões que
-            você mais usa.
+            A clareza não vem de pensar mais, e sim de olhar de ângulos
+            diferentes. As lentes acima são atalhos que grandes decisores usam
+            para escapar do próprio viés.
           </p>
         </div>
       )}

@@ -852,3 +852,98 @@ body {
     animation: none !important;
   }
 }
+
+/* ============ Polimento visual & interatividade ============ */
+.actions { position: relative; }
+
+/* Celebração: golpe de vitória (onda de choque + fagulhas) */
+.strike {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 0; height: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+.strike .shock {
+  position: absolute;
+  left: -13px; top: -13px;
+  width: 26px; height: 26px;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 200, 120, 0.9);
+  opacity: 0;
+  animation: shockwave 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.strike .shock2 { border-color: rgba(226, 96, 74, 0.7); animation-delay: 0.08s; }
+@keyframes shockwave {
+  0%   { opacity: 0.9; transform: scale(0.3); border-width: 4px; }
+  70%  { opacity: 0.5; }
+  100% { opacity: 0; transform: scale(6.5); border-width: 1px; }
+}
+.strike .spark {
+  position: absolute;
+  left: -3px; top: -3px;
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 40%, #fff2d6, #ffb24d 55%, transparent 70%);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: sparkFly 0.62s ease-out forwards;
+}
+.strike .spark:nth-child(3)  { --a: 0deg;   --d: 62px; }
+.strike .spark:nth-child(4)  { --a: 45deg;  --d: 54px; }
+.strike .spark:nth-child(5)  { --a: 90deg;  --d: 40px; }
+.strike .spark:nth-child(6)  { --a: 135deg; --d: 54px; }
+.strike .spark:nth-child(7)  { --a: 180deg; --d: 62px; }
+.strike .spark:nth-child(8)  { --a: 225deg; --d: 54px; }
+.strike .spark:nth-child(9)  { --a: 270deg; --d: 40px; }
+.strike .spark:nth-child(10) { --a: 315deg; --d: 54px; }
+@keyframes sparkFly {
+  0%   { opacity: 1; transform: rotate(var(--a)) translateX(4px) scale(1.2); }
+  100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--d)) scale(0.4); }
+}
+
+/* Revelação suave do Mentor e dos micropassos */
+.mentor { animation: revealUp 0.45s cubic-bezier(0.2, 0.72, 0.16, 1) both; }
+.steps-list li { animation: revealUp 0.4s cubic-bezier(0.2, 0.72, 0.16, 1) both; }
+.steps-list li:nth-child(1) { animation-delay: 0.02s; }
+.steps-list li:nth-child(2) { animation-delay: 0.12s; }
+.steps-list li:nth-child(3) { animation-delay: 0.22s; }
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Sequência (chama): brilho pulsante */
+.flame { animation: flameGlow 2.6s ease-in-out infinite; }
+@keyframes flameGlow {
+  0%, 100% { text-shadow: 0 0 0 rgba(226, 96, 74, 0); }
+  50%      { text-shadow: 0 0 12px rgba(226, 96, 74, 0.65); }
+}
+
+/* Botão primário: elevação e sheen no hover */
+.btn-primary { position: relative; overflow: hidden; }
+.btn-primary:hover:not(:active) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 36px -12px rgba(255, 255, 255, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.25) inset;
+}
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 32%, rgba(255, 255, 255, 0.5) 50%, transparent 68%);
+  transform: translateX(-130%);
+  transition: transform 0.6s ease;
+}
+.btn-primary:hover::after { transform: translateX(130%); }
+
+/* Toque tátil extra */
+.tab:active { transform: scale(0.96); }
+.pill:active { transform: scale(0.96); }
+
+/* Respeita quem prefere menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  .strike, .btn-primary::after { display: none; }
+  .flame, .mentor, .steps-list li { animation: none !important; }
+}

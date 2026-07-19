@@ -1,65 +1,69 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="METANOIA — borboleta com corpo em cruz">
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="METANOIA — espada com punho em cruz">
   <defs>
-    <!-- Fundo aurora (identidade do app) -->
     <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#0c0a14"/>
       <stop offset="1" stop-color="#06060b"/>
     </linearGradient>
     <radialGradient id="glowCoral" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(96 104) scale(300)">
-      <stop offset="0" stop-color="#e2604a" stop-opacity="0.55"/>
+      <stop offset="0" stop-color="#e2604a" stop-opacity="0.5"/>
       <stop offset="1" stop-color="#e2604a" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="glowBlue" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(430 432) scale(320)">
-      <stop offset="0" stop-color="#3aa0e0" stop-opacity="0.5"/>
+      <stop offset="0" stop-color="#3aa0e0" stop-opacity="0.45"/>
       <stop offset="1" stop-color="#3aa0e0" stop-opacity="0"/>
     </radialGradient>
-    <!-- Asas: gradiente jovial quente->frio -->
-    <linearGradient id="wing" x1="256" y1="120" x2="256" y2="400" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffb24d"/>
-      <stop offset="0.42" stop-color="#e2604a"/>
-      <stop offset="0.72" stop-color="#a24be0"/>
-      <stop offset="1" stop-color="#5b6cf0"/>
+    <!-- Aura de energia da lâmina -->
+    <radialGradient id="aura" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 300) rotate(90) scale(150 60)">
+      <stop offset="0" stop-color="#ffb24d" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffb24d" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Aço da lâmina -->
+    <linearGradient id="steel" x1="228" y1="196" x2="284" y2="410" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f6f9fd"/>
+      <stop offset="0.5" stop-color="#cdd6e2"/>
+      <stop offset="1" stop-color="#9aa6b7"/>
     </linearGradient>
-    <linearGradient id="cross" x1="256" y1="150" x2="256" y2="392" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#fff7ea"/>
-      <stop offset="1" stop-color="#f2d9a6"/>
+    <linearGradient id="steelEdge" x1="232" y1="200" x2="256" y2="405" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e8eef6"/>
+    </linearGradient>
+    <!-- Ouro/bronze do punho -->
+    <linearGradient id="gold" x1="150" y1="120" x2="362" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe6ad"/>
+      <stop offset="0.5" stop-color="#e5a83f"/>
+      <stop offset="1" stop-color="#b97a1f"/>
     </linearGradient>
   </defs>
 
-  <!-- Base -->
+  <!-- Base aurora -->
   <rect width="512" height="512" rx="116" fill="url(#bg)"/>
   <rect width="512" height="512" rx="116" fill="url(#glowCoral)"/>
   <rect width="512" height="512" rx="116" fill="url(#glowBlue)"/>
+  <rect width="512" height="512" rx="116" fill="url(#aura)"/>
 
-  <!-- Borboleta -->
-  <g stroke="#f7ede0" stroke-opacity="0.16" stroke-width="4">
-    <!-- Asas superiores -->
-    <path d="M256 214 C 214 150, 132 128, 108 176 C 84 224, 150 250, 210 262 C 244 268, 262 246, 256 214 Z" fill="url(#wing)"/>
-    <path d="M256 214 C 298 150, 380 128, 404 176 C 428 224, 362 250, 302 262 C 268 268, 250 246, 256 214 Z" fill="url(#wing)"/>
-    <!-- Asas inferiores -->
-    <path d="M256 262 C 224 286, 168 300, 156 344 C 146 384, 200 396, 234 372 C 258 354, 262 300, 256 262 Z" fill="url(#wing)"/>
-    <path d="M256 262 C 288 286, 344 300, 356 344 C 366 384, 312 396, 278 372 C 254 354, 250 300, 256 262 Z" fill="url(#wing)"/>
-  </g>
+  <!-- Lâmina (aponta pra baixo; punho em cruz no topo) -->
+  <path d="M232 198 L280 198 L268 388 L256 412 L244 388 Z" fill="url(#steel)"/>
+  <!-- Bisel de brilho na lâmina -->
+  <path d="M244 200 L256 200 L256 404 L250 392 Z" fill="url(#steelEdge)" fill-opacity="0.85"/>
+  <!-- Fuller (canaleta central) -->
+  <path d="M256 208 L256 380" stroke="#7f8a9c" stroke-width="4" stroke-linecap="round" stroke-opacity="0.55"/>
 
-  <!-- Pontos joviais nas asas -->
-  <g fill="#fff7ea" fill-opacity="0.9">
-    <circle cx="168" cy="196" r="12"/>
-    <circle cx="344" cy="196" r="12"/>
+  <!-- Punho: guarda (cruz), cabo e pomo -->
+  <g fill="url(#gold)" stroke="#3a2708" stroke-opacity="0.28" stroke-width="3">
+    <!-- Guarda transversal (barra da cruz) -->
+    <rect x="150" y="173" width="212" height="26" rx="13"/>
+    <!-- Finais da guarda -->
+    <circle cx="150" cy="186" r="14"/>
+    <circle cx="362" cy="186" r="14"/>
+    <!-- Cabo -->
+    <rect x="245" y="132" width="22" height="46" rx="8"/>
+    <!-- Pomo -->
+    <circle cx="256" cy="120" r="18"/>
   </g>
-  <g fill="#fff7ea" fill-opacity="0.55">
-    <circle cx="196" cy="344" r="8"/>
-    <circle cx="316" cy="344" r="8"/>
-  </g>
-
-  <!-- Corpo = cruz -->
-  <g fill="url(#cross)">
-    <rect x="244" y="150" width="24" height="242" rx="12"/>
-    <rect x="212" y="206" width="88" height="22" rx="11"/>
-  </g>
-
-  <!-- Antenas -->
-  <g stroke="url(#cross)" stroke-width="7" stroke-linecap="round" fill="none">
-    <path d="M256 152 C 246 132, 232 122, 216 120"/>
-    <path d="M256 152 C 266 132, 280 122, 296 120"/>
+  <!-- Enrolamento do cabo -->
+  <g stroke="#3a2708" stroke-opacity="0.35" stroke-width="3" stroke-linecap="round">
+    <path d="M247 143 L265 149"/>
+    <path d="M247 152 L265 158"/>
+    <path d="M247 161 L265 167"/>
   </g>
 </svg>

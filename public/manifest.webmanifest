@@ -1,0 +1,26 @@
+{
+  "name": "METANOIA — encare, aja, transforme",
+  "short_name": "METANOIA",
+  "description": "Um desafio de coragem por vez: uma ação concreta para hoje e uma pergunta que vai à raiz. Combate espiritual, ancorado na Palavra.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#07070c",
+  "theme_color": "#07070c",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

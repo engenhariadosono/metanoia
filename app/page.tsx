@@ -198,6 +198,7 @@ export default function Home() {
   const [intFilter, setIntFilter] = useState<IntFilter>("todas");
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [pulse, setPulse] = useState(false);
+  const [celebrate, setCelebrate] = useState(0);
 
   // ---- Idiomas / Quiz ----
   const [lang, setLang] = useState<Lang>("en");
@@ -312,6 +313,7 @@ export default function Home() {
     if (!current) return;
     markDone(current.id);
     setPulse(true);
+    setCelebrate((c) => c + 1);
     window.setTimeout(() => setPulse(false), 500);
     window.setTimeout(next, 280);
   }
@@ -772,6 +774,20 @@ export default function Home() {
               >
                 ✓ Encarei
               </button>
+              {celebrate > 0 && (
+                <div className="strike" key={celebrate} aria-hidden="true">
+                  <i className="shock" />
+                  <i className="shock shock2" />
+                  <span className="spark" />
+                  <span className="spark" />
+                  <span className="spark" />
+                  <span className="spark" />
+                  <span className="spark" />
+                  <span className="spark" />
+                  <span className="spark" />
+                  <span className="spark" />
+                </div>
+              )}
             </div>
           )}
 

@@ -7,6 +7,7 @@ export const metadata: Metadata = {
     "Um desafio de coragem por vez: uma ação concreta para hoje e uma pergunta que vai à raiz. Ancorado na Palavra, no estoicismo e nos mestres. Funciona offline.",
   applicationName: "METANOIA",
   appleWebApp: { capable: true, title: "METANOIA", statusBarStyle: "black-translucent" },
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {

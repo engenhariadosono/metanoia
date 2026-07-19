@@ -13,6 +13,7 @@ import {
 import { THEMES, ALL_PHRASES, type Phrase } from "@/lib/phrases";
 import { useProgress } from "@/lib/useProgress";
 import { speak, warmVoices } from "@/lib/speak";
+import InstallButton from "./InstallButton";
 
 type Mode = "encarar" | "idiomas" | "quiz" | "cerebro" | "decidir";
 type CatFilter = CategoryId | "todas";
@@ -582,6 +583,7 @@ export default function Home() {
           <small>encare · aja · transforme</small>
         </div>
         <div className="topbar-actions">
+          <InstallButton />
           {mounted && streak > 0 && (
             <span className="iconbtn flame" title="Dias seguidos encarando">
               🔥 {streak}

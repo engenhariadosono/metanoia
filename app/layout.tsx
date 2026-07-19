@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://metanoia-pi.vercel.app"),
   title: "METANOIA — encare, aja, transforme",
   description:
     "Um desafio de coragem por vez: uma ação concreta para hoje e uma pergunta que vai à raiz. Ancorado na Palavra, no estoicismo e nos mestres. Funciona offline.",

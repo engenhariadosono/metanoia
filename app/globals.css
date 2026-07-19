@@ -941,3 +941,25 @@ body {
   .strike, .btn-primary::after { display: none; }
   .flame, .mentor, .steps-list li { animation: none !important; }
 }
+
+/* Botão "Instalar app" (aparece só quando instalável) */
+.install-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-brd);
+  background: linear-gradient(135deg, rgba(226, 96, 74, 0.22), rgba(124, 92, 255, 0.18));
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(10px);
+  transition: transform 0.14s ease, background 0.2s ease;
+}
+.install-btn:hover {
+  background: linear-gradient(135deg, rgba(226, 96, 74, 0.32), rgba(124, 92, 255, 0.26));
+}
+.install-btn:active { transform: scale(0.96); }

@@ -10,7 +10,8 @@ Regras:
 - Tom firme, respeitoso, adulto. Sem clichês de autoajuda, sem elogio vazio, sem julgamento, sem diagnóstico clínico.
 - Pode ancorar brevemente numa ideia estoica ou bíblica se couber, sem citar capítulo/versículo.
 - Português do Brasil. Sem listas, sem passos, sem introdução do tipo "Ótima reflexão".
-- Se a reflexão estiver vazia, provoque a partir da própria pergunta.`;
+- Se a reflexão estiver vazia, provoque a partir da própria pergunta.
+- Se houver REFLEXÕES ANTERIORES, note discretamente um padrão ou uma evolução (sem citar datas, sem repetir o que ela já disse) para aprofundar.`;
 
 const STEPS_SYSTEM = `Você decompõe uma AÇÃO em exatamente 3 micropassos absurdamente pequenos e concretos, no imperativo.
 - O primeiro leva menos de 2 minutos e é praticamente impossível de recusar (algo físico e imediato).
@@ -28,6 +29,21 @@ Regras:
 
 function str(v: unknown, max: number): string {
   return typeof v === "string" ? v.slice(0, max).trim() : "";
+}
+
+// Memória: até 3 reflexões anteriores da pessoa, saneadas.
+function historyText(v: unknown): string {
+  if (!Array.isArray(v)) return "";
+  return v
+    .slice(0, 3)
+    .map((h) => {
+      const hh = h as Record<string, unknown>;
+      const q = str(hh?.question, 300);
+      const body = str(hh?.body, 600);
+      return body ? `- Sobre "${q}": ${body}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
 }
 
 export async function POST(req: Request) {
@@ -79,7 +95,11 @@ export async function POST(req: Request) {
       ? `Ação: ${action}\n\nDê exatamente 3 micropassos.`
       : mode === "decidir"
         ? `Opção A: ${optionA || "(vazia)"}\nOpção B: ${optionB || "(vazia)"}\n\nDevolva a leitura de clareza.`
-        : `Pergunta de raiz: ${question}\nAção proposta: ${action || "(sem ação)"}\n\nReflexão da pessoa: ${reflection || "(ainda não escreveu)"}\n\nDevolva a provocação.`;
+        : `${
+            historyText(b?.history)
+              ? `Reflexões anteriores da pessoa (memória — use para notar padrões, não repita):\n${historyText(b?.history)}\n\n`
+              : ""
+          }Pergunta de raiz: ${question}\nAção proposta: ${action || "(sem ação)"}\n\nReflexão da pessoa: ${reflection || "(ainda não escreveu)"}\n\nDevolva a provocação.`;
 
   try {
     const msg = await client.messages.create({

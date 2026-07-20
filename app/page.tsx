@@ -98,6 +98,22 @@ function loadReflections(): Record<string, string> {
   }
 }
 
+interface JournalEntry {
+  id: string; // challengeId
+  question: string;
+  body: string;
+  date: string; // ISO
+}
+
+function loadJournal(): JournalEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem("metanoia:journal") || "[]");
+  } catch {
+    return [];
+  }
+}
+
 function loadPlans(): Record<string, string> {
   if (typeof window === "undefined") return {};
   try {
@@ -213,6 +229,8 @@ export default function Home() {
   // ---- Aprimoramento IA: micropassos, reflexão, mentor ----
   const [reflections, setReflections] =
     useState<Record<string, string>>(loadReflections);
+  const [journal, setJournal] = useState<JournalEntry[]>(loadJournal);
+  const [showDiary, setShowDiary] = useState(false);
   const [stepsById, setStepsById] = useState<Record<string, string[]>>({});
   const [stepsLoading, setStepsLoading] = useState(false);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -365,6 +383,7 @@ export default function Home() {
     if (!current) return;
     markDone(current.id);
     track("encarei", { area: current.category });
+    saveToJournal(current.id, current.question, reflections[current.id] ?? "");
     setPulse(true);
     setCelebrate((c) => c + 1);
     window.setTimeout(() => setPulse(false), 500);
@@ -413,6 +432,25 @@ export default function Home() {
     });
   }
 
+  // Diário: guarda a reflexão como entrada cronológica (a mais recente por desafio).
+  function saveToJournal(id: string, question: string, body: string) {
+    const text = body.trim();
+    if (!text) return;
+    setJournal((prev) => {
+      const rest = prev.filter((e) => e.id !== id);
+      const next = [
+        { id, question, body: text, date: new Date().toISOString() },
+        ...rest,
+      ].slice(0, 100);
+      try {
+        localStorage.setItem("metanoia:journal", JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
   function toggleCheck(id: string, i: number) {
     const key = `${id}#${i}`;
     setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -447,6 +485,11 @@ export default function Home() {
     const id = current.id;
     setMentorLoading(true);
     track("mentor", { tipo: "reflexao" });
+    saveToJournal(id, current.question, reflections[id] ?? "");
+    const history = journal
+      .filter((e) => e.id !== id)
+      .slice(0, 3)
+      .map((e) => ({ question: e.question, body: e.body }));
     try {
       const res = await fetch("/api/mentor", {
         method: "POST",
@@ -456,6 +499,7 @@ export default function Home() {
           question: current.question,
           action: current.action,
           reflection: reflections[id] ?? "",
+          history,
         }),
       });
       const data = await res.json();
@@ -653,6 +697,16 @@ export default function Home() {
               {reminderOn ? "🔔" : "🔕"}
             </button>
           )}
+          {mounted && journal.length > 0 && (
+            <button
+              className="iconbtn"
+              onClick={() => setShowDiary(true)}
+              aria-label="Abrir diário de reflexões"
+              title="Diário de reflexões"
+            >
+              📖
+            </button>
+          )}
           {mounted && streak > 0 && (
             <span className="iconbtn flame" title="Dias seguidos encarando">
               🔥 {streak}
@@ -667,6 +721,38 @@ export default function Home() {
           </button>
         </div>
       </header>
+
+      {showDiary && (
+        <div className="diary" role="dialog" aria-label="Diário de reflexões">
+          <div className="diary-head">
+            <strong>📖 Diário</strong>
+            <button
+              className="iconbtn"
+              onClick={() => setShowDiary(false)}
+              aria-label="Fechar diário"
+            >
+              ✕
+            </button>
+          </div>
+          {journal.length === 0 ? (
+            <p className="diary-empty">
+              Suas reflexões aparecerão aqui conforme você encara os desafios.
+            </p>
+          ) : (
+            <ul className="diary-list">
+              {journal.map((e) => (
+                <li key={e.id + e.date} className="diary-item">
+                  <span className="diary-date">
+                    {new Date(e.date).toLocaleDateString("pt-BR")}
+                  </span>
+                  <p className="diary-q">{e.question}</p>
+                  <p className="diary-body">{e.body}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <nav className="tabs">
         <button
